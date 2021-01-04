@@ -16,11 +16,12 @@ getCell (x,y) grid =
                 Just $ row !! (x `mod` (length row))
        else Nothing
 
+-- At first I had a separate boolean function "isTree" but I felt it was unwieldy when it came to using it in solve because then not only was I repeating work by getting the cell twice, but having the two different Maybe a return types (Maybe Coord and Maybe Cell) felt like poor design because it didn't make clear which failure state took precedence, as the failure of one implied the failure of the other.
+-- So instead I opted to just include both at once, which I think makes it cleaner.
 nextCell :: Coord -> Grid -> Maybe (Coord, Cell)
 nextCell (x,y) grid = getCell (x,y) grid >>= \c -> Just ((x',y'), c)
     where x' = x + 3
           y' = y + 1
-
 
 charToCell :: Char -> Cell
 charToCell c = case c of

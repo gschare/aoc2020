@@ -16,6 +16,8 @@ getCell (x,y) grid =
                 Just $ row !! (x `mod` (length row))
        else Nothing
 
+-- The nature of how I wrote this for part 1 made adapting to part 2 super straightforward.
+-- And that's without having any prior knowledge that part 2 would involve changing the slopes!
 nextCell :: Coord -> Grid -> (Int, Int) -> Maybe (Coord, Cell)
 nextCell (x,y) grid (xoff, yoff) = getCell (x,y) grid >>= \c -> Just ((x',y'), c)
     where x' = x + xoff
