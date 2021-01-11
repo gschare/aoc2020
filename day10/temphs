@@ -1,0 +1,12 @@
+-- Returns the list of valid sequences from which to continue building your adapter sequence given a particular previous element
+findValid :: Int -> [Int] -> [[Int]]
+findValid n xs = map (\(x,ys) -> dropWhile (/=x) ys) $ zip validStarters (repeat xs)
+    where validStarters = filter (\x -> x - n >= 1 && x - n <= 3) xs
+
+arrangements :: [Int] -> [[Int]]
+arrangements [] = [[]]
+arrangements [x] = [[x]]
+arrangements (x:xs) = foldr foldFunction [[]] seqs
+    where seqs = findValid x xs
+          prependAll y ys = map (y:) ys
+          foldFunction ys acc = prependAll x (arrangements ys) ++ acc
