@@ -1,6 +1,8 @@
+import qualified Data.Map.Strict as M
+
 data Cell = Floor | Empty | Full deriving (Show, Eq)
 type Coord = (Int, Int)
-type Grid = [[(Coord, Cell)]]
+type Grid = M.Map Coord Cell
 
 offsetMatrix :: [Coord]
 offsetMatrix = [ (-1,-1), (-1, 0), (-1, 1)
@@ -8,11 +10,15 @@ offsetMatrix = [ (-1,-1), (-1, 0), (-1, 1)
                , ( 1,-1), ( 1, 0), ( 1, 1)
                ]
 
-gridMap :: ((Coord, Cell) -> (Coord, Cell)) -> Grid -> Grid
-gridMap f g = map (map f) g
+splitEvery :: [a] -> Int -> [[a]]
+splitEvery xs n = if length xs < n
+                     then [xs]
+                     else take n xs : splitEvery (drop n xs) n
 
 gridToLines :: Grid -> [String]
-gridToLines g = map (map (cellToChar . snd)) g
+gridToLines g = flip splitEvery (cols + 1) $ map (cellToChar . (M.!) g) $ [(i,j) | i <- [0..rows], j <- [0..cols]]
+    where rows = maximum $ map fst $ M.keys g
+          cols = maximum $ map snd $ M.keys g
 
 printGrid :: Grid -> IO ()
 printGrid = mapM_ putStrLn . gridToLines
@@ -31,15 +37,11 @@ lineToCells :: String -> [Cell]
 lineToCells = map charToCell
 
 linesToGrid :: [String] -> Grid
-linesToGrid = map f . zip [0..]
-    where f (i,l) = map (\(j, c) -> ((i, j), charToCell c)) $ zip [0..] l
+linesToGrid = M.fromList . concat . fmap f . zip [0..]
+    where f (i,l) = fmap (\(j,c) -> ((i,j), charToCell c)) $ zip [0..] l
 
 getCell :: Coord -> Grid -> Maybe Cell
-getCell (i,j) g
-    | i < 0 || j < 0 = Nothing
-    | i >= length g = Nothing
-    | j >= length (g !! i) = Nothing
-    | otherwise = Just (snd $ g !! i !! j)
+getCell c g = M.lookup c g
 
 countFullNeighbors :: Coord -> Grid -> Int
 countFullNeighbors (i,j) g = sum fullNeighbors
@@ -50,34 +52,37 @@ countFullNeighbors (i,j) g = sum fullNeighbors
           f _ = 0
           fullNeighbors = map f neighbors
 
-progressCell :: (Coord, Cell) -> Grid -> (Coord, Cell)
+progressCell :: (Coord, Cell) -> Grid -> Cell
 progressCell (coord,state) g
-    | state == Empty && fullNeighbors == 0 = (coord,Full)
-    | state == Full  && fullNeighbors >= 4 = (coord,Empty)
-    | otherwise = (coord,state)
+    | state == Empty && fullNeighbors == 0 = Full
+    | state == Full  && fullNeighbors >= 4 = Empty
+    | otherwise = state
   where fullNeighbors = countFullNeighbors coord g
 
 progressGrid :: Grid -> Grid
-progressGrid g = gridMap (flip progressCell g) g
+progressGrid g = M.mapWithKey (curry (flip progressCell g)) g
 
-simulate :: Grid -> Grid
-simulate g =
+simulate :: Grid -> (Int, Grid)
+simulate g = simulateN (0,g)
+
+simulateN :: (Int, Grid) -> (Int, Grid)
+simulateN (n,g) =
     if g == g'
-       then g'
-       else simulate g'
+       then (n,g')
+       else simulateN (n+1,g')
     where g' = progressGrid g
 
 countFull :: Grid -> Int
-countFull = sum . concat . map (map f)
-    where f (_,st) = case st of
-                       Full -> 1
-                       otherwise -> 0
+countFull = sum . map f . M.elems
+    where f st = case st of
+                   Full -> 1
+                   otherwise -> 0
 
 parseFile :: String -> IO Grid
 parseFile filename = readFile filename >>= return . linesToGrid . lines
 
-solveFile :: String -> IO Int
-solveFile filename = parseFile filename >>= return . countFull . simulate
+solveFile :: String -> IO (Int, Int)
+solveFile filename = parseFile filename >>= return . (\(n,g) -> (n, countFull g)) . simulate
 
 main :: IO ()
 main = solveFile "test.txt" >>= print
