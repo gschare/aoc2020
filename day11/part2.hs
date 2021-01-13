@@ -27,6 +27,7 @@ charToCell :: Char -> Cell
 charToCell '.' = Floor
 charToCell 'L' = Empty
 charToCell '#' = Full
+charToCell _   = error "invalid char"
 
 cellToChar :: Cell -> Char
 cellToChar Floor = '.'
@@ -84,7 +85,7 @@ countFull :: Grid -> Int
 countFull = sum . map f . M.elems
     where f st = case st of
                    Full -> 1
-                   otherwise -> 0
+                   _ -> 0
 
 parseFile :: String -> IO Grid
 parseFile filename = readFile filename >>= return . linesToGrid . lines
