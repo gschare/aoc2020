@@ -1,4 +1,5 @@
-import Data.List (nub, transpose, isPrefixOf)
+import Data.List (nub, transpose, isPrefixOf, sortBy, sortOn)
+import Data.Ord (comparing)
 import Data.List.Split (splitOn)
 import Data.Maybe (fromJust)
 import Control.Monad (guard)
@@ -11,6 +12,9 @@ count x xs = foldr (\y acc -> if x == y then acc + 1 else acc) 0 xs
 
 unique :: (Eq a) => [a] -> Bool
 unique xs = nub xs == xs
+
+remove :: (Eq a) => a -> [a] -> [a]
+remove x xs = filter (/=x) xs
 
 type Field = String
 type Range = ((Int, Int), (Int, Int))
@@ -42,26 +46,14 @@ getAllDomains rules tickets = map getDomain $ transpose $ filter (all (/=[])) $ 
 -- Exploit the requirements of our specific constraint.
 -- If i is an index with only one possible field x, then remove x from the domains at index [0..n] \ i.
 -- Repeat until no further deductions can be made (i.e. when the previous is the same as the current).
-iterReduce :: [[Field]] -> [[Field]]
-iterReduce domains = iter [] domains
-    where reduce :: [[Field]] -> [Field]
-          reduce d = map head $ filter ((==1) . length) d
-          iter :: [Field] -> [[Field]] -> [[Field]]
-          iter removed d =
-              let removed' = reduce d in
-                  if removed' == removed
-                     then d
-                     else iter removed' (map (\xs -> if length xs == 1 then xs else filter (`notElem` removed') xs) d)
-
-
-satisfy :: [[Field]] -> [Field]
-satisfy domains = do
-    soln <- sequence domains
-    guard $ unique soln
-    soln
+iterReduce :: [[Field]] -> [Field]
+iterReduce domains = map snd $ sortOn fst $ iter $ sortBy (comparing (length . snd)) $ zip [0..] domains
+    where iter :: [(Int, [Field])] -> [(Int, Field)]
+          iter [] = []
+          iter ((i,fields):xs) = (i,head fields):(iter (map (\(a,b) -> (a, remove (head fields) b)) xs))
 
 getFields :: [Rule] -> Ticket -> [Ticket] -> [Field]
-getFields rules myticket tickets = satisfy $ iterReduce $ getAllDomains rules (myticket:tickets)
+getFields rules myticket tickets = iterReduce $ getAllDomains rules (myticket:tickets)
 
 solve :: [Rule] -> Ticket -> [Ticket] -> Int
 solve rules myticket tickets = product $ map snd $ filter (isPrefixOf "departure" . fst) $ zip (getFields rules myticket tickets) myticket
